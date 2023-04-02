@@ -2,6 +2,7 @@ const express = require('express');
 const { Gateway } = require('../models/gateway');
 const { Device } = require('../models/device');
 const { Counter } = require('../models/counter');
+const { isIpValid } = require('../utils/utils');
 
 const router = express.Router({});
 
@@ -27,10 +28,14 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
     const { name, ipAddress } = req.body;
 
+    if (!isIpValid(ipAddress)) {
+        return res.status(400).json(`ip address ${ipAddress} is invalid`);
+    }
+
     const gateway = new Gateway({ name, ipAddress, devices: [] });
 
     const document = await gateway.save();
-    res.json(document);
+    return res.json(document);
 });
 
 router.post('/:id/device', async (req, res) => {
