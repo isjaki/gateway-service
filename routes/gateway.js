@@ -1,109 +1,60 @@
 const express = require('express');
-const { Gateway } = require('../models/gateway');
-const { Device } = require('../models/device');
-const { Counter } = require('../models/counter');
-const { isIpValid } = require('../utils/utils');
+const { GatewayService } = require('../services/gateway-service');
 
 const router = express.Router({});
 
-const COUNTER_NAME = 'device_counter';
-
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
     const { id } = req.params;
 
-    const gateway = await Gateway.findById(id).populate('devices');
-
-    if (gateway === null) {
-        res.status(404).json(`no gateway found with id: ${id}`);
-    } else {
+    try {
+        const gateway = await GatewayService.getById(id);
         res.json(gateway);
+    } catch (e) {
+        next(e);
     }
 });
 
-router.get('/', async (req, res) => {
-    const gateways = await Gateway.find().populate('devices');
-    res.json(gateways);
+router.get('/', async (req, res, next) => {
+    try {
+        const gateways = await GatewayService.getAll();
+        res.json(gateways);
+    } catch (e) {
+        next(e);
+    }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
     const { name, ipAddress } = req.body;
 
-    if (!isIpValid(ipAddress)) {
-        return res.status(400).json(`ip address ${ipAddress} is invalid`);
+    try {
+        const gateway = await GatewayService.createGateway(name, ipAddress);
+        res.json(gateway);
+    } catch (e) {
+        next(e);
     }
-
-    const gateway = new Gateway({ name, ipAddress, devices: [] });
-
-    const document = await gateway.save();
-    return res.json(document);
 });
 
-router.post('/:id/device', async (req, res) => {
+router.post('/:id/device', async (req, res, next) => {
     const gatewayId = req.params.id;
     const { vendor, status } = req.body;
 
-    const gateway = await Gateway.findById(gatewayId);
-
-    if (gateway === null) {
-        return res
-            .status(404)
-            .json(`no gateway found with id: ${gatewayId}`);
+    try {
+        const newDevice = await GatewayService.addDevice(gatewayId, vendor, status);
+        res.json(newDevice);
+    } catch (e) {
+        next(e);
     }
-    if (gateway.devices.length > 9) {
-        return res
-            .status(400)
-            .json('no more that 10 peripheral devices are allowed for a gateway');
-    }
-
-    const counter = await Counter
-        .findOneAndUpdate(
-            { name: COUNTER_NAME },
-            { $inc: { value: 1 } },
-            { upsert: true, new: true },
-        );
-
-    const device = new Device({
-        uid: counter.value,
-        vendor,
-        status,
-        date: new Date(),
-        gatewayId: gateway._id,
-    });
-
-    const savedDevice = await device.save();
-
-    gateway.devices.push(savedDevice._id);
-    await gateway.save();
-
-    return res.json(savedDevice);
 });
 
-router.delete('/:gatewayId/device/:deviceId', async (req, res) => {
+router.delete('/:gatewayId/device/:deviceId', async (req, res, next) => {
     const { gatewayId, deviceId } = req.params;
 
-    const gateway = await Gateway.findById(gatewayId);
-
-    if (gateway === null) {
-        return res
-            .status(404)
-            .json(`no gateway found with id: ${gatewayId}`);
+    try {
+        const deletedDevice = await GatewayService.removeDevice(gatewayId, deviceId);
+        res.json(deletedDevice);
+    } catch (e) {
+        next(e);
     }
-
-    const device = await Device.findById(deviceId);
-
-    if (device === null) {
-        return res
-            .status(404)
-            .json(`no device found with id: ${deviceId}`);
-    }
-
-    await device.deleteOne();
-
-    gateway.devices = gateway.devices
-        .filter((id) => id.toString() !== deviceId);
-    await gateway.save();
-
-    return res.json(device);
 });
 
 module.exports = router;
