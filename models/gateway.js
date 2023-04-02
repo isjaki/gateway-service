@@ -1,10 +1,15 @@
 const { Schema, model } = require('mongoose');
-const { deviceSchema } = require('./device');
 
 const gatewaySchema = new Schema({
-    name: String,
-    ipAddress: String,
-    devices: [deviceSchema],
+    name: {
+        type: String,
+        required: true,
+    },
+    ipAddress: {
+        type: String,
+        required: true,
+    },
+    devices: [{ type: Schema.Types.ObjectId, ref: 'Device' }],
 });
 
 const Gateway = model('Gateway', gatewaySchema);

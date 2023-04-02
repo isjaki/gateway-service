@@ -15,7 +15,7 @@ app.listen(PORT, () => {
     console.log(`Server is listening on http://localhost:${PORT}`);
 
     try {
-        mongoose.connect('mongodb://db:27017/test');
+        mongoose.connect('mongodb://localhost:27017/test');
     } catch (e) {
         console.log(e);
     }

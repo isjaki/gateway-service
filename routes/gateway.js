@@ -1,13 +1,13 @@
 const express = require('express');
-const { Device } = require('../models/device');
 const { Gateway } = require('../models/gateway');
+const { Device } = require('../models/device');
 
 const router = express.Router({});
 
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
 
-    const gateway = await Gateway.findById(id);
+    const gateway = await Gateway.findById(id).populate('devices');
 
     if (gateway === null) {
         res.status(404).json(`no gateway found with id: ${id}`);
@@ -17,7 +17,7 @@ router.get('/:id', async (req, res) => {
 });
 
 router.get('/', async (req, res) => {
-    const gateways = await Gateway.find();
+    const gateways = await Gateway.find().populate('devices');
     res.json(gateways);
 });
 
@@ -52,13 +52,15 @@ router.post('/:id/device', async (req, res) => {
         vendor,
         status,
         date: new Date(),
+        gatewayId: gateway._id,
     });
 
-    gateway.devices.push(device);
+    const savedDevice = await device.save();
 
-    const updatedGateway = await gateway.save();
+    gateway.devices.push(savedDevice._id);
+    await gateway.save();
 
-    return res.json(updatedGateway);
+    return res.json(savedDevice);
 });
 
 router.delete('/:gatewayId/device/:deviceId', async (req, res) => {
@@ -67,16 +69,26 @@ router.delete('/:gatewayId/device/:deviceId', async (req, res) => {
     const gateway = await Gateway.findById(gatewayId);
 
     if (gateway === null) {
-        res
+        return res
             .status(404)
             .json(`no gateway found with id: ${gatewayId}`);
-    } else {
-        gateway.devices = gateway.devices.filter((device) => device._id.toString() !== deviceId);
-
-        const updatedGateway = await gateway.save();
-
-        res.json(updatedGateway);
     }
+
+    const device = await Device.findById(deviceId);
+
+    if (device === null) {
+        return res
+            .status(404)
+            .json(`no device found with id: ${deviceId}`);
+    }
+
+    await device.deleteOne();
+
+    gateway.devices = gateway.devices
+        .filter((id) => id.toString() !== deviceId);
+    await gateway.save();
+
+    return res.json(device);
 });
 
 module.exports = router;
