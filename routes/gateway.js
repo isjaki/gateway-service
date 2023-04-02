@@ -1,8 +1,11 @@
 const express = require('express');
 const { Gateway } = require('../models/gateway');
 const { Device } = require('../models/device');
+const { Counter } = require('../models/counter');
 
 const router = express.Router({});
+
+const COUNTER_NAME = 'device_counter';
 
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
@@ -47,8 +50,15 @@ router.post('/:id/device', async (req, res) => {
             .json('no more that 10 peripheral devices are allowed for a gateway');
     }
 
+    const counter = await Counter
+        .findOneAndUpdate(
+            { name: COUNTER_NAME },
+            { $inc: { value: 1 } },
+            { upsert: true, new: true },
+        );
+
     const device = new Device({
-        uid: 1,
+        uid: counter.value,
         vendor,
         status,
         date: new Date(),
