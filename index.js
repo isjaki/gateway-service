@@ -18,7 +18,7 @@ app.use((err, req, res, next) => {
 const PORT = 8000;
 
 async function main() {
-    await mongoose.connect('mongodb://db:27017/gateway_db');
+    await mongoose.connect('mongodb://localhost:27017/gateway_db');
     app.listen(PORT);
 }
 

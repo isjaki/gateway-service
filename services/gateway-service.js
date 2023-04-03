@@ -1,5 +1,4 @@
 const { Gateway } = require('../models/gateway');
-const { Device } = require('../models/device');
 const { Counter } = require('../models/counter');
 const { isIpValid } = require('../utils/utils');
 
@@ -7,14 +6,14 @@ class GatewayService {
     static DEVICE_COUNTER = 'device_counter';
 
     static async getAll() {
-        return Gateway.find().populate('devices');
+        return Gateway.find();
     }
 
     static async getById(gatewayId) {
-        const gateway = await Gateway.findById(gatewayId).populate('devices');
+        const gateway = await Gateway.findById(gatewayId);
 
         if (gateway === null) {
-            const error = new Error(`no gateway found with id: ${gatewayId}`);
+            const error = new Error(`no gateway is found with id: ${gatewayId}`);
             error.status = 404;
             throw error;
         }
@@ -36,7 +35,7 @@ class GatewayService {
         const gateway = await Gateway.findById(gatewayId);
 
         if (gateway === null) {
-            const error = new Error(`no gateway found with id: ${gatewayId}`);
+            const error = new Error(`no gateway is found with id: ${gatewayId}`);
             error.status = 404;
             throw error;
         }
@@ -54,46 +53,41 @@ class GatewayService {
                 { upsert: true, new: true },
             );
 
-        const device = new Device({
+        const device = {
             uid: counter.value,
             vendor,
             status,
             date: new Date(),
-            gatewayId: gateway._id,
-        });
+        };
 
-        const savedDevice = await device.save();
-
-        gateway.devices.push(savedDevice._id);
+        gateway.devices.push(device);
         await gateway.save();
 
-        return savedDevice;
+        return gateway;
     }
 
-    static async removeDevice(gatewayId, deviceId) {
+    static async removeDevice(gatewayId, deviceUid) {
         const gateway = await Gateway.findById(gatewayId);
 
         if (gateway === null) {
-            const error = new Error(`no gateway found with id: ${gatewayId}`);
+            const error = new Error(`no gateway is found with id: ${gatewayId}`);
             error.status = 404;
             throw error;
         }
 
-        const device = await Device.findById(deviceId);
+        const hasDevice = gateway.devices.map(({ uid }) => uid).includes(Number(deviceUid));
 
-        if (device === null) {
-            const error = new Error(`no device found with id: ${deviceId}`);
+        if (!hasDevice) {
+            const error = new Error(`no device is found with uid: ${deviceUid} for this gateway`);
             error.status = 404;
             throw error;
         }
-
-        await device.deleteOne();
 
         gateway.devices = gateway.devices
-            .filter((id) => id.toString() !== deviceId);
+            .filter((device) => device.uid !== Number(deviceUid));
         await gateway.save();
 
-        return device;
+        return gateway;
     }
 }
 
